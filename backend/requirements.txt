@@ -1,0 +1,32 @@
+# Corralejo 2026 Backend - Python Dependencies
+# Python 3.11.11
+
+# Web Framework
+fastapi==0.110.1
+uvicorn[standard]==0.25.0
+
+# Database
+motor==3.3.1
+pymongo==4.5.0
+pydantic==2.12.5
+pydantic-settings==2.2.1
+
+# HTTP Client
+httpx==0.28.1
+
+# Environment Variables
+python-dotenv==1.2.1
+
+# Date/Time Handling
+python-dateutil==2.9.0.post0
+
+# AI Integration
+google-generativeai==0.8.3
+
+# Utilities
+pytz==2024.1
+cachetools==5.3.3
+
+# Development
+pytest==8.0.2
+pytest-asyncio==0.23.5

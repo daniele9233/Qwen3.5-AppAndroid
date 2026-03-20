@@ -66,7 +66,7 @@ def convert_doc(doc: Optional[Dict]) -> Optional[Dict]:
         elif isinstance(value, dict):
             result[key] = convert_doc(value)
         elif isinstance(value, list):
-            result[key] = [convert_doc(item) if isinstance(item, dict) else item for item in value]
+            result[key] = [convert_doc(item) if isinstance(item, dict) else str(item) if isinstance(item, datetime) else item for item in value]
         else:
             result[key] = value
     return result

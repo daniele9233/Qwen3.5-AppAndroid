@@ -61,6 +61,8 @@ def convert_doc(doc: Optional[Dict]) -> Optional[Dict]:
     for key, value in doc.items():
         if isinstance(value, ObjectId):
             result[key] = str(value)
+        elif isinstance(value, datetime):
+            result[key] = value.isoformat()
         elif isinstance(value, dict):
             result[key] = convert_doc(value)
         elif isinstance(value, list):

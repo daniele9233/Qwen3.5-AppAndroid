@@ -1,15 +1,17 @@
 # 🏃 Qwen3.5 Corralejo 2026
 
-> App Android per l'allenamento alla **Mezza Maratona di Corralejo 2026**  
+> App Android per l'allenamento alla **Mezza Maratona di Corralejo 2026**
 > 🎯 Obiettivo: 1:35:00 (4:30/km) | 📅 Gara: 01/12/2026
 
 App completa di allenamento generata con **React Native + Expo** (frontend) e **FastAPI + MongoDB + Gemini AI** (backend).
+
+**Backend Live**: https://corralejo-backend-pubx.onrender.com
 
 ---
 
 ## ✨ Funzionalità Implementate
 
-### 📱 Frontend (Expo/React Native)
+### 📱 Frontend (Expo/React Native) - 17 Schermate
 - ✅ **Dark theme** con colori lime (#bef264) e design moderno
 - ✅ **Navigation con 5 tab**: Dashboard, Corse, Piano, Statistiche, Profilo
 - ✅ **Dashboard**: Countdown gara, sessione del giorno, bottone "SEGNA FATTO", progresso settimanale
@@ -17,6 +19,17 @@ App completa di allenamento generata con **React Native + Expo** (frontend) e **
 - ✅ **Piano Allenamento**: Vista lista/calendario, 38 settimane, toggle completamento sessioni
 - ✅ **Statistiche**: VO2Max gauge, previsioni gara VDOT, zone allenamento, best efforts
 - ✅ **Profilo**: Dati atleta, connessione Strava (OAuth), medaglie, integratori, esercizi
+- ✅ **Nuove Schermate**:
+  - ➕ `add-run.tsx`: Aggiungi corsa manuale con calcolo automatico passo/durata
+  - ➕ `add-test.tsx`: Aggiungi test (5km, 10km, 15km, 21.1km)
+  - 🔍 `run-detail.tsx`: Dettaglio corsa con analisi AI Gemini (voto/10, consigli, punti forza/debolezza)
+  - 📋 `workout-detail.tsx`: Dettaglio sessione allenamento con toggle completamento
+  - 📈 `periodizzazione.tsx`: Grafico barre volume settimanale (38 settimane)
+  - 📉 `progressi.tsx`: Storico VO2max, previsioni gara, passi VDOT, soglie anaerobiche
+  - 🧮 `calcolatore.tsx`: Calcolatore VDOT, previsioni gara, convertitore passo/velocità
+  - ⚠️ `injury-risk.tsx`: Injury Risk Score con gauge e raccomandazioni
+  - 🔗 `strava-callback.tsx`: Gestione OAuth callback Strava
+  - 🏅 `badges.tsx`: Sistema 100+ badge con 8 categorie e 6 livelli
 - ✅ **TypeScript completo** per type-safety e autocompletamento
 
 ### ⚙️ Backend (FastAPI/Python)
@@ -211,10 +224,13 @@ passo 4:30/km)...
 ```
 Qwen3.5-AppAndroid/
 ├── README.md                 # Questa documentazione
+├── BUILD_GUIDE.md            # Guida completa al deploy
 ├── .gitignore                # Esclude .env, node_modules, build outputs
 ├── .env                      # Variabili d'ambiente (NON committare!)
 ├── .env.example              # Template per nuove configurazioni
 ├── render.yaml               # Deploy automatico su Render.com
+├── push-to-github.bat        # Script Windows per push
+├── push-to-github.sh         # Script Unix per push
 │
 ├── frontend/                 # React Native + Expo (Android App)
 │   ├── app.json              # Config Expo (project ID, package, scheme)
@@ -223,10 +239,19 @@ Qwen3.5-AppAndroid/
 │   ├── tsconfig.json         # TypeScript config con path aliases
 │   ├── src/
 │   │   ├── api.ts            # Client API axios con tutti gli endpoint
-│   │   ├── theme.ts          # Tema dark: colori, spacing, font, session types
-│   │   └── types.ts          # TypeScript interfaces condivise
+│   │   └── theme.ts          # Tema dark: colori, spacing, font, session types
 │   └── app/
 │       ├── _layout.tsx       # Root layout + Stack Navigator + StatusBar
+│       ├── add-run.tsx       # Aggiungi corsa manuale
+│       ├── add-test.tsx      # Aggiungi test
+│       ├── run-detail.tsx    # Dettaglio corsa con analisi AI
+│       ├── workout-detail.tsx # Dettaglio sessione
+│       ├── periodizzazione.tsx # Grafico periodizzazione
+│       ├── progressi.tsx     # Storico VO2max e progressi
+│       ├── calcolatore.tsx   # Calcolatore VDOT e previsioni
+│       ├── injury-risk.tsx   # Injury Risk Score
+│       ├── strava-callback.tsx # OAuth callback Strava
+│       ├── badges.tsx        # Sistema badge e trofei
 │       └── (tabs)/
 │           ├── _layout.tsx   # Bottom tabs: Dashboard|Corse|Piano|Stats|Profilo
 │           ├── index.tsx     # Dashboard: countdown, sessione oggi, progressi
@@ -236,16 +261,9 @@ Qwen3.5-AppAndroid/
 │           └── profilo.tsx   # Profilo atleta + Strava + medaglie + integratori
 │
 └── backend/                  # FastAPI + Python (REST API Server)
-    ├── requirements.txt      # Dipendenze Python (FastAPI, Motor, Gemini)
     ├── server.py             # Server completo con tutti gli endpoint API
-    ├── models/               # Pydantic models per request/response validation
-    ├── services/
-    │   ├── vdot.py           # Calcolo VDOT formule Jack Daniels
-    │   ├── piano.py          # Generazione piano periodizzazione scientifica
-    │   ├── gemini.py         # Integrazione Google Gemini AI
-    │   └── strava.py         # OAuth + sync attività Strava
-    └── utils/
-        └── db.py             # Connessione MongoDB async con Motor
+    ├── requirements.txt      # Dipendenze Python (FastAPI, Motor, Gemini)
+    └── install-and-run.bat   # Script Windows per avviare il backend
 ```
 
 ---
@@ -257,23 +275,30 @@ Qwen3.5-AppAndroid/
 |--------|----------|-------------|
 | GET | `/api/dashboard` | Dati dashboard: profilo, settimana, countdown, progressi |
 | GET | `/api/training-plan` | Piano completo 38 settimane con fasi e sessioni |
+| GET | `/api/training-plan/current` | Settimana corrente |
+| GET | `/api/training-plan/week/{week_id}` | Dettaglio settimana specifica |
 | PATCH | `/api/training-plan/session/complete` | Toggle completamento sessione |
 | POST | `/api/training-plan/adapt` | Auto-adatta piano basato su carico recente |
+| GET | `/api/training-plan/adaptation-status` | Metriche scientifiche adattamento |
 
 ### Corse & Analytics
 | Metodo | Endpoint | Descrizione |
 |--------|----------|-------------|
 | GET | `/api/runs` | Lista corse (ordinamento data decrescente) |
+| GET | `/api/runs/{run_id}` | Dettaglio corsa con analisi AI |
 | POST | `/api/runs` | Crea nuova corsa manuale |
 | GET | `/api/analytics` | Stats complete: VO2Max, previsioni, best efforts |
 | GET | `/api/vdot/paces` | VDOT corrente + 5 zone allenamento Daniels |
 | GET | `/api/injury-risk` | Injury Risk Score con raccomandazioni |
+| GET | `/api/vo2max-history` | Storico andamento VDOT |
+| GET | `/api/badges` | Lista badge e trofei |
 
 ### AI & Strava
 | Metodo | Endpoint | Descrizione |
 |--------|----------|-------------|
 | POST | `/api/ai/analyze-run` | Analisi AI corsa con Google Gemini |
 | GET | `/api/strava/auth-url` | URL autorizzazione OAuth Strava |
+| POST | `/api/strava/exchange-code` | Scambio codice per access token |
 | POST | `/api/strava/sync` | Sync attività + auto-adatta piano + ricalcola VDOT |
 
 ### Utilità
@@ -283,6 +308,8 @@ Qwen3.5-AppAndroid/
 | POST | `/api/seed` | Popola DB con dati iniziali (sviluppo) |
 | GET | `/api/profile` | Profilo atleta |
 | PATCH | `/api/profile` | Aggiorna campi profilo |
+| GET | `/api/supplements` | Lista integratori |
+| GET | `/api/exercises` | Protocollo esercizi rinforzo |
 
 ---
 
@@ -333,6 +360,50 @@ eas update --branch production --message "Nuova feature injury risk"
 ```
 
 Gli utenti riceveranno l'aggiornamento al prossimo avvio dell'app.
+
+---
+
+## ✅ Stato del Progetto
+
+### Componenti Implementati
+
+| Componente | Stato | URL/Note |
+|---|---|---|
+| **Backend API** | ✅ Live | https://corralejo-backend-pubx.onrender.com |
+| **MongoDB Atlas** | ✅ Connesso | Database: corralejo2026 |
+| **Google Gemini AI** | ✅ Attiva | Modello: gemini-1.5-flash |
+| **Frontend Code** | ✅ Completo | 17 schermate implementate |
+| **TypeScript** | ✅ Configurato | Type-safety completa |
+| **Expo Router** | ✅ Navigazione | File-based routing |
+| **EAS Build** | ✅ Pronto | Profile preview/production |
+
+### Schermate Frontend (17 totale)
+
+#### Tab Principali (5)
+- ✅ Dashboard (`app/(tabs)/index.tsx`)
+- ✅ Corse (`app/(tabs)/corse.tsx`)
+- ✅ Piano (`app/(tabs)/piano.tsx`)
+- ✅ Statistiche (`app/(tabs)/statistiche.tsx`)
+- ✅ Profilo (`app/(tabs)/profilo.tsx`)
+
+#### Schermate Secondarie (12)
+- ✅ Aggiungi Corsa (`app/add-run.tsx`)
+- ✅ Aggiungi Test (`app/add-test.tsx`)
+- ✅ Dettaglio Corsa (`app/run-detail.tsx`)
+- ✅ Dettaglio Sessione (`app/workout-detail.tsx`)
+- ✅ Periodizzazione (`app/periodizzazione.tsx`)
+- ✅ Progressi (`app/progressi.tsx`)
+- ✅ Calcolatore (`app/calcolatore.tsx`)
+- ✅ Injury Risk (`app/injury-risk.tsx`)
+- ✅ Strava Callback (`app/strava-callback.tsx`)
+- ✅ Badge (`app/badges.tsx`)
+
+### Prossimi Passi
+
+1. **Build APK**: `cd frontend && npx eas build --platform android --profile preview`
+2. **Test su dispositivo**: Installa APK e verifica tutte le funzionalità
+3. **Deploy Play Store**: `npx eas build --platform android --profile production`
+4. **Aggiornamenti OTA**: `eas update --branch production`
 
 ---
 

@@ -78,9 +78,9 @@ async def lifespan(app: FastAPI):
     
     logger.info("🚀 Qwen3.5 Corralejo Backend started")
     yield
-    
+
     # Shutdown: Close MongoDB connection
-    if mongo_client:
+    if mongo_client is not None:
         mongo_client.close()
         logger.info("✓ MongoDB connection closed")
 
@@ -341,7 +341,7 @@ def generate_week_sessions(phase: str, week_num: int, km_target: float, is_recov
 
 async def analyze_run_with_gemini(run_data: dict) -> dict:
     """Analyze a run using Google Gemini AI"""
-    if not gemini_model:
+    if gemini_model is None:
         return get_fallback_analysis(run_data)
     
     try:
@@ -419,8 +419,8 @@ async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "mongodb": "connected" if db else "disconnected",
-        "gemini": "active" if gemini_model else "inactive",
+        "mongodb": "connected" if db is not None else "disconnected",
+        "gemini": "active" if gemini_model is not None else "inactive",
         "version": "1.0.0"
     }
 
@@ -488,16 +488,16 @@ async def seed_database():
 @app.get("/api/dashboard")
 async def get_dashboard():
     """Get comprehensive dashboard data"""
-    profile = await db.profile.find_one() if db else None
+    profile = await db.profile.find_one() if db is not None else None
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found - run /api/seed first")
-    
+
     # Get current week based on today's date
     today = datetime.now()
     current_week = await db.training_weeks.find_one({
         "start_date": {"$lte": today.isoformat()},
         "end_date": {"$gte": today.isoformat()}
-    }) if db else None
+    }) if db is not None else None
     
     # Calculate countdown to race
     time_diff = RACE_DATE - today
@@ -518,7 +518,7 @@ async def get_dashboard():
                 break
     
     # Get recent runs
-    recent_runs = await db.runs.find().sort("date", -1).limit(3).to_list(3) if db else []
+    recent_runs = await db.runs.find().sort("date", -1).limit(3).to_list(3) if db is not None else []
     
     # Calculate weekly progress
     completed = sum(1 for s in current_week.get("sessions", []) if s.get("completed")) if current_week else 0
@@ -538,7 +538,7 @@ async def get_dashboard():
 @app.get("/api/training-plan")
 async def get_training_plan():
     """Get full 38-week training plan"""
-    weeks = await db.training_weeks.find().sort("week_number", 1).to_list(100) if db else []
+    weeks = await db.training_weeks.find().sort("week_number", 1).to_list(100) if db is not None else []
     
     phases = [
         {"id": "ripresa", "name": "🟢 Ripresa", "startWeek": 1, "endWeek": 4, "kmTarget": 25, "color": "#22c55e"},
@@ -562,7 +562,7 @@ async def get_training_plan():
 @app.get("/api/vdot/paces")
 async def get_vdot_paces():
     """Get current VDOT and derived training paces"""
-    profile = await db.profile.find_one() if db else None
+    profile = await db.profile.find_one() if db is not None else None
     vdot = profile.get("vdot", 48.7) if profile and profile.get("vdot") else 48.7
     return calculate_paces_from_vdot(vdot)
 
@@ -570,8 +570,8 @@ async def get_vdot_paces():
 @app.get("/api/analytics")
 async def get_analytics():
     """Get comprehensive analytics and predictions"""
-    profile = await db.profile.find_one() if db else None
-    runs = await db.runs.find().to_list(100) if db else []
+    profile = await db.profile.find_one() if db is not None else None
+    runs = await db.runs.find().to_list(100) if db is not None else []
     
     # Calculate best efforts by distance
     best_efforts = []
@@ -611,21 +611,21 @@ async def analyze_run_endpoint(request: AIAnalysisRequest):
     """AI analysis of a run using Google Gemini"""
     run_data = request.model_dump()
     analysis = await analyze_run_with_gemini(run_data)
-    
+
     # Save analysis to run if exists
-    if db:
+    if db is not None:
         await db.runs.update_one(
             {"id": request.run_id},
             {"$set": {"analysis": analysis}}
         )
-    
+
     return analysis
 
 
 @app.get("/api/runs")
 async def get_runs(limit: int = Query(50, le=200)):
     """Get all runs sorted by date (newest first)"""
-    runs = await db.runs.find().sort("date", -1).limit(limit).to_list(limit) if db else []
+    runs = await db.runs.find().sort("date", -1).limit(limit).to_list(limit) if db is not None else []
     return runs
 
 
@@ -634,14 +634,14 @@ async def create_run(run: Run):
     """Create a new manual run entry"""
     run_dict = run.model_dump()
     run_dict["id"] = f"run_{datetime.now().timestamp()}"
-    result = await db.runs.insert_one(run_dict) if db else None
+    result = await db.runs.insert_one(run_dict) if db is not None else None
     return {"id": str(result.inserted_id) if result else run_dict["id"], **run_dict}
 
 
 @app.get("/api/runs/{run_id}")
 async def get_run(run_id: str):
     """Get run details with optional AI analysis"""
-    run = await db.runs.find_one({"id": run_id}) if db else None
+    run = await db.runs.find_one({"id": run_id}) if db is not None else None
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
     return run
@@ -653,18 +653,18 @@ async def complete_session(session_id: str, completed: bool = True):
     result = await db.training_weeks.update_one(
         {"sessions.id": session_id},
         {"$set": {"sessions.$.completed": completed}}
-    ) if db else None
-    
+    ) if db is not None else None
+
     if not result or result.modified_count == 0:
         raise HTTPException(status_code=404, detail="Session not found")
-    
+
     return {"success": True, "sessionId": session_id, "completed": completed}
 
 
 @app.get("/api/profile")
 async def get_profile():
     """Get athlete profile"""
-    profile = await db.profile.find_one() if db else None
+    profile = await db.profile.find_one() if db is not None else None
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
     return profile
@@ -673,7 +673,7 @@ async def get_profile():
 @app.patch("/api/profile")
 async def update_profile(profile_data: dict):
     """Update athlete profile fields"""
-    result = await db.profile.update_one({}, {"$set": profile_data}) if db else None
+    result = await db.profile.update_one({}, {"$set": profile_data}) if db is not None else None
     if not result or result.modified_count == 0:
         raise HTTPException(status_code=404, detail="Profile not found")
     return await db.profile.find_one()
@@ -701,7 +701,7 @@ async def adapt_training_plan():
     """Auto-adapt training plan based on scientific models"""
     recent_runs = await db.runs.find(
         {"date": {"$gte": (datetime.now() - timedelta(days=21)).isoformat()}}
-    ).to_list(50) if db else []
+    ).to_list(50) if db is not None else []
     
     acute_load = sum(r.get("distance", 0) for r in recent_runs[-7:])
     chronic_load = sum(r.get("distance", 0) for r in recent_runs[-28:]) / 4 if len(recent_runs) >= 28 else acute_load
@@ -733,7 +733,7 @@ async def get_injury_risk():
     """Calculate injury risk score based on training load metrics"""
     recent_runs = await db.runs.find(
         {"date": {"$gte": (datetime.now() - timedelta(days=28)).isoformat()}}
-    ).to_list(100) if db else []
+    ).to_list(100) if db is not None else []
     
     weekly_loads = []
     for i in range(4):

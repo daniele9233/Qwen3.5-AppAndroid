@@ -542,6 +542,7 @@ async def get_dashboard():
     
     # Get recent runs
     recent_runs = await db.runs.find().sort("date", -1).limit(3).to_list(3) if db is not None else []
+    recent_runs = [convert_doc(r) for r in recent_runs]
     
     # Calculate weekly progress
     completed = sum(1 for s in current_week.get("sessions", []) if s.get("completed")) if current_week else 0

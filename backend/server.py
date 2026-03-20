@@ -519,9 +519,8 @@ async def get_dashboard():
         "start_date": {"$lte": today.isoformat()},
         "end_date": {"$gte": today.isoformat()}
     }) if db is not None else None
-    if current_week:
-        current_week = convert_doc(current_week)
-    
+    current_week = convert_doc(current_week) if current_week else None
+
     # Calculate countdown to race
     time_diff = RACE_DATE - today
     countdown = {
@@ -529,7 +528,7 @@ async def get_dashboard():
         "hours": time_diff.seconds // 3600 if time_diff.days >= 0 else 0,
         "minutes": (time_diff.seconds % 3600) // 60 if time_diff.days >= 0 else 0,
     }
-    
+
     # Get today's session
     today_session = None
     if current_week:
@@ -539,15 +538,15 @@ async def get_dashboard():
                 today_session = session
                 today_session["is_today"] = True
                 break
-    
+
     # Get recent runs
     recent_runs = await db.runs.find().sort("date", -1).limit(3).to_list(3) if db is not None else []
     recent_runs = [convert_doc(r) for r in recent_runs]
-    
+
     # Calculate weekly progress
     completed = sum(1 for s in current_week.get("sessions", []) if s.get("completed")) if current_week else 0
     total = len(current_week.get("sessions", [])) if current_week else 0
-    
+
     return {
         "profile": profile,
         "currentWeek": current_week,

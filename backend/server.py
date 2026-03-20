@@ -659,12 +659,12 @@ async def get_runs(limit: int = Query(50, le=200)):
 @app.post("/api/runs")
 async def create_run(run: Run):
     """Create a new manual run entry"""
-    run_dict = run.model_dump()
+    run_dict = run.model_dump(exclude_none=True)
     run_dict["id"] = f"run_{datetime.now().timestamp()}"
     if db is None:
         return {"id": run_dict["id"], **run_dict}
     result = await db.runs.insert_one(run_dict)
-    return {"id": str(result.inserted_id), **run_dict}
+    return {"id": str(result.inserted_id), "message": "Run created successfully"}
 
 
 @app.get("/api/runs/{run_id}")

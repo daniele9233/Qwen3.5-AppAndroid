@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 
+from bson import ObjectId
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
@@ -50,6 +51,23 @@ logger = logging.getLogger(__name__)
 mongo_client: Optional[AsyncIOMotorClient] = None
 db: Optional[AsyncIOMotorDatabase] = None
 gemini_model = None
+
+
+def convert_doc(doc: Optional[Dict]) -> Optional[Dict]:
+    """Convert MongoDB document to JSON-serializable dict"""
+    if doc is None:
+        return None
+    result = {}
+    for key, value in doc.items():
+        if isinstance(value, ObjectId):
+            result[key] = str(value)
+        elif isinstance(value, dict):
+            result[key] = convert_doc(value)
+        elif isinstance(value, list):
+            result[key] = [convert_doc(item) if isinstance(item, dict) else item for item in value]
+        else:
+            result[key] = value
+    return result
 
 
 @asynccontextmanager
@@ -491,6 +509,7 @@ async def get_dashboard():
     profile = await db.profile.find_one() if db is not None else None
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found - run /api/seed first")
+    profile = convert_doc(profile)
 
     # Get current week based on today's date
     today = datetime.now()
@@ -498,6 +517,8 @@ async def get_dashboard():
         "start_date": {"$lte": today.isoformat()},
         "end_date": {"$gte": today.isoformat()}
     }) if db is not None else None
+    if current_week:
+        current_week = convert_doc(current_week)
     
     # Calculate countdown to race
     time_diff = RACE_DATE - today
@@ -539,6 +560,7 @@ async def get_dashboard():
 async def get_training_plan():
     """Get full 38-week training plan"""
     weeks = await db.training_weeks.find().sort("week_number", 1).to_list(100) if db is not None else []
+    weeks = [convert_doc(w) for w in weeks]
     
     phases = [
         {"id": "ripresa", "name": "🟢 Ripresa", "startWeek": 1, "endWeek": 4, "kmTarget": 25, "color": "#22c55e"},
@@ -563,6 +585,7 @@ async def get_training_plan():
 async def get_vdot_paces():
     """Get current VDOT and derived training paces"""
     profile = await db.profile.find_one() if db is not None else None
+    profile = convert_doc(profile)
     vdot = profile.get("vdot", 48.7) if profile and profile.get("vdot") else 48.7
     return calculate_paces_from_vdot(vdot)
 
@@ -571,7 +594,9 @@ async def get_vdot_paces():
 async def get_analytics():
     """Get comprehensive analytics and predictions"""
     profile = await db.profile.find_one() if db is not None else None
+    profile = convert_doc(profile)
     runs = await db.runs.find().to_list(100) if db is not None else []
+    runs = [convert_doc(r) for r in runs]
     
     # Calculate best efforts by distance
     best_efforts = []
@@ -626,7 +651,7 @@ async def analyze_run_endpoint(request: AIAnalysisRequest):
 async def get_runs(limit: int = Query(50, le=200)):
     """Get all runs sorted by date (newest first)"""
     runs = await db.runs.find().sort("date", -1).limit(limit).to_list(limit) if db is not None else []
-    return runs
+    return [convert_doc(r) for r in runs]
 
 
 @app.post("/api/runs")
@@ -644,7 +669,7 @@ async def get_run(run_id: str):
     run = await db.runs.find_one({"id": run_id}) if db is not None else None
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
-    return run
+    return convert_doc(run)
 
 
 @app.patch("/api/training-plan/session/complete")
@@ -667,7 +692,7 @@ async def get_profile():
     profile = await db.profile.find_one() if db is not None else None
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
-    return profile
+    return convert_doc(profile)
 
 
 @app.patch("/api/profile")
@@ -676,7 +701,7 @@ async def update_profile(profile_data: dict):
     result = await db.profile.update_one({}, {"$set": profile_data}) if db is not None else None
     if not result or result.modified_count == 0:
         raise HTTPException(status_code=404, detail="Profile not found")
-    return await db.profile.find_one()
+    return convert_doc(await db.profile.find_one())
 
 
 @app.get("/api/strava/auth-url")
@@ -702,6 +727,7 @@ async def adapt_training_plan():
     recent_runs = await db.runs.find(
         {"date": {"$gte": (datetime.now() - timedelta(days=21)).isoformat()}}
     ).to_list(50) if db is not None else []
+    recent_runs = [convert_doc(r) for r in recent_runs]
     
     acute_load = sum(r.get("distance", 0) for r in recent_runs[-7:])
     chronic_load = sum(r.get("distance", 0) for r in recent_runs[-28:]) / 4 if len(recent_runs) >= 28 else acute_load
@@ -734,6 +760,7 @@ async def get_injury_risk():
     recent_runs = await db.runs.find(
         {"date": {"$gte": (datetime.now() - timedelta(days=28)).isoformat()}}
     ).to_list(100) if db is not None else []
+    recent_runs = [convert_doc(r) for r in recent_runs]
     
     weekly_loads = []
     for i in range(4):

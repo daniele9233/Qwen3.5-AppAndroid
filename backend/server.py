@@ -171,7 +171,7 @@ class TrainingWeek(BaseModel):
 
 
 class Run(BaseModel):
-    id: str
+    id: Optional[str] = None
     date: str
     distance: float
     duration: int
